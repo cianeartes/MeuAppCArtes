@@ -1129,6 +1129,7 @@ def montar_colagem_interface(parent, session_in=None):
         session['icones_widgets'].clear()
         session['icones_paths'].clear()
         session['icones_refs'].clear()
+        session['lote_states'].clear()
 
     # ── Processar drop na área principal ───────────────────────
 
@@ -1181,12 +1182,17 @@ def montar_colagem_interface(parent, session_in=None):
         if not image_files:
             set_status('Nenhuma imagem válida encontrada.')
             return
-        session['images']      = image_files
-        session['lote_states'].clear()  # Limpa estados ao carregar um novo lote principal
+        
+        # Calcular offset inicial para não sobrepor ícones anteriores
+        start_idx = 0
+        if session['icones_widgets']:
+            start_idx = max(session['icones_widgets'].keys()) + 1
+            
+        session['images'] = image_files
         session['last_folder'] = os.path.dirname(os.path.abspath(image_files[0]))
         bs    = session['batch_size']
         lotes = [image_files[i:i+bs] for i in range(0, len(image_files), bs)]
-        set_status(f'✅ {len(image_files)} imagem(ns)  →  {len(lotes)} colagem(ns) geradas de até {bs} foto(s).')
+        set_status(f'✅ {len(image_files)} imagem(ns)  →  {len(lotes)} colagem(ns) geradas.')
         btn_excluir.config(state=tk.NORMAL)
         
         if session.get('auto_colagem', False):
@@ -1195,7 +1201,8 @@ def montar_colagem_interface(parent, session_in=None):
             
             def worker():
                 for idx, lote in enumerate(lotes):
-                    gerar_colagem_automatica(lote, idx)
+                    real_idx = start_idx + idx
+                    gerar_colagem_automatica(lote, real_idx)
                     pct = (idx + 1) / len(lotes) * 100
                     parent.after(0, progress_var.set, pct)
                 parent.after(500, progress_bar.pack_forget)
@@ -1203,7 +1210,7 @@ def montar_colagem_interface(parent, session_in=None):
             threading.Thread(target=worker, daemon=True).start()
         else:
             for idx, lote in enumerate(lotes):
-                abrir_preview(lote, idx)
+                abrir_preview(lote, start_idx + idx)
 
     def drop(event):
         process_images(list(parent.tk.splitlist(event.data)))
