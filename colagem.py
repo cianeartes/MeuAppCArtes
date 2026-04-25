@@ -154,6 +154,10 @@ def montar_colagem_interface(parent, session_in=None):
             'lote_states':    {},
             'status_msg':     '',
             'auto_colagem':   cfg.get('auto_colagem', False),
+            'auto_settings':  cfg.get('auto_settings', {
+                'gap': 0, 'radius': 0, 'bg_color': '#FFFFFF',
+                'aspect_ratio': None, 'template': 'grade', 'bg_image': None
+            }),
         }
     else:
         session = session_in
@@ -1134,18 +1138,21 @@ def montar_colagem_interface(parent, session_in=None):
         rows, cols = escolher_layout(qtd)
         
         cfg = carregar_config()
+        auto_cfg = session.get('auto_settings', {})
+        
         state = {
             'offsets':  {i: (0.0, 0.0) for i in range(qtd)},
             'col_frac': [1.0/cols] * cols,
             'row_frac': [1.0/rows] * rows,
-            'gap':      0,
+            'gap':      auto_cfg.get('gap', 0),
             'zooms':    {i: 1.0 for i in range(qtd)},
-            'bg_color': cfg.get('bg_color', '#FFFFFF'),
-            'aspect_ratio': None,
+            'bg_color': auto_cfg.get('bg_color', '#FFFFFF'),
+            'aspect_ratio': auto_cfg.get('aspect_ratio'),
             'transforms': {i: {'rotate': 0, 'flip_h': False, 'flip_v': False} for i in range(qtd)},
             'filters': {i: {'type': 'normal', 'brightness': 1.0} for i in range(qtd)},
-            'radius': 0,
-            'template': 'grade'
+            'radius': auto_cfg.get('radius', 0),
+            'template': auto_cfg.get('template', 'grade'),
+            'bg_image': auto_cfg.get('bg_image')
         }
         
         folder = cfg.get('output_folder') or session['last_folder']
@@ -1157,7 +1164,7 @@ def montar_colagem_interface(parent, session_in=None):
             out = gerar_nome_unico(folder, base=base, ext=fmt)
         
         try:
-            make_collage(img_paths, out, state, 0)
+            make_collage(img_paths, out, state, state.get('gap', 0))
             
             session['lote_states'][lote_idx] = copy.deepcopy(state)
             session['lote_states'][lote_idx]['img_paths'] = img_paths.copy()
@@ -1244,6 +1251,200 @@ def montar_colagem_interface(parent, session_in=None):
 
     tk.Label(top_bar, text='foto(s)',
              fg=TEMA['text_sec'], bg=TEMA['bg_panel'], font=TEMA['font_small']).pack(side=tk.LEFT)
+
+    def abrir_configuracoes_auto():
+        auto_cfg = session['auto_settings']
+        # Cópia temporária para o preview não afetar o config até salvar
+        preview_state = copy.deepcopy(auto_cfg)
+        
+        awin = tk.Toplevel(parent)
+        awin.title("Configurações Automáticas com Preview")
+        awin.geometry("920x520")
+        awin.configure(bg=TEMA['bg_main'])
+        awin.transient(parent)
+        awin.grab_set()
+
+        main_split = tk.Frame(awin, bg=TEMA['bg_main'])
+        main_split.pack(fill=tk.BOTH, expand=True)
+
+        f_left = tk.Frame(main_split, bg=TEMA['bg_main'], padx=20, pady=20, width=380)
+        f_left.pack(side=tk.LEFT, fill=tk.BOTH)
+        f_left.pack_propagate(False)
+
+        f_right = tk.Frame(main_split, bg=TEMA['bg_panel'], padx=10, pady=10)
+        f_right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # ── Área de Preview (Direita) ──
+        tk.Label(f_right, text="Pré-visualização (Exemplo com 4 fotos)", 
+                 bg=TEMA['bg_panel'], fg=TEMA['text_sec'], font=TEMA['font_small']).pack(pady=(0,10))
+        
+        preview_canvas = tk.Canvas(f_right, bg=TEMA['bg_main'], highlightthickness=1, highlightbackground=TEMA['accent'])
+        preview_canvas.pack(expand=True)
+
+        def redesenhar_auto_preview(event=None):
+            preview_canvas.delete("all")
+            aw = f_right.winfo_width() - 40
+            ah = f_right.winfo_height() - 80
+            if aw < 50 or ah < 50: return
+
+            # Simular 4 fotos
+            qtd = 4
+            rows, cols = escolher_layout(qtd)
+            
+            # Cálculo de escala para o preview
+            base_w, base_h = 400, 300
+            ar = preview_state.get('aspect_ratio')
+            if ar:
+                if base_w / base_h > ar: base_h = int(base_w / ar)
+                else: base_w = int(base_h * ar)
+            
+            sc = min(aw / (base_w + 20), ah / (base_h + 20), 1.0)
+            pw, ph = int(base_w * sc), int(base_h * sc)
+            
+            preview_canvas.config(width=pw, height=ph)
+            
+            # Fundo
+            bg_c = preview_state.get('bg_color', '#FFFFFF')
+            preview_canvas.create_rectangle(0, 0, pw, ph, fill=bg_c, outline='')
+            
+            # Gap e Radius escalados
+            gap_vis = int(preview_state.get('gap', 0) * sc * 0.4) 
+            rad_vis = int(preview_state.get('radius', 0) * sc * 0.4)
+            
+            state_mock = {
+                'template': preview_state.get('template', 'grade'),
+                'col_frac': [1.0/cols]*cols,
+                'row_frac': [1.0/rows]*rows,
+                'gap': preview_state.get('gap', 0)
+            }
+            rects = calc_cell_rects(pw, ph, qtd, cols, state_mock, gap_vis)
+            
+            colors = ["#6366F1", "#10B981", "#F59E0B", "#EF4444"]
+            for i, (rx, ry, rw, rh) in enumerate(rects):
+                if i >= len(colors): break
+                c = colors[i]
+                # Simular arredondamento simples
+                if rad_vis > 5:
+                    preview_canvas.create_rectangle(rx, ry, rx+rw, ry+rh, fill=c, outline='', stipple='gray50' if i%2 else '')
+                    # Apenas um indicador visual de que a borda está ativa
+                    preview_canvas.create_oval(rx, ry, rx+rad_vis*2, ry+rad_vis*2, fill=c, outline='')
+                
+                preview_canvas.create_rectangle(rx, ry, rx+rw, ry+rh, fill=c, outline='white', width=1)
+                preview_canvas.create_text(rx+rw/2, ry+rh/2, text=f"F{i+1}", fill="white", font=('Segoe UI', 8, 'bold'))
+
+        f_right.bind("<Configure>", lambda e: awin.after(10, redesenhar_auto_preview))
+
+        # ── Controles (Esquerda) ──
+        tk.Label(f_left, text="Proporção da Colagem:", bg=TEMA['bg_main'], fg=TEMA['text_main'], font=TEMA['font_title']).pack(anchor='w', pady=(0,5))
+        ar_frame = tk.Frame(f_left, bg=TEMA['bg_main'])
+        ar_frame.pack(fill=tk.X, pady=(0,15))
+        
+        var_ar = tk.StringVar(value="Livre")
+        
+        def update_ar_var():
+            curr = preview_state.get('aspect_ratio')
+            if curr == 1.0: var_ar.set("1:1")
+            elif curr == 9/16: var_ar.set("9:16")
+            elif curr == 4/5: var_ar.set("4:5")
+            else: var_ar.set("Livre")
+        
+        update_ar_var()
+        
+        def set_ar_auto(lab, val):
+            preview_state['aspect_ratio'] = val
+            var_ar.set(lab)
+            redesenhar_auto_preview()
+            
+        for lab, val in [("Livre", None), ("1:1", 1.0), ("9:16", 9/16), ("4:5", 4/5)]:
+            tk.Radiobutton(ar_frame, text=lab, variable=var_ar, value=lab, 
+                           command=lambda l=lab, v=val: set_ar_auto(l, v),
+                           bg=TEMA['bg_main'], fg=TEMA['text_main'], selectcolor=TEMA['bg_panel'],
+                           activebackground=TEMA['bg_main'], activeforeground=TEMA['accent'],
+                           font=TEMA['font_small']).pack(side=tk.LEFT, padx=2)
+
+        # Template
+        tk.Label(f_left, text="Template padrão:", bg=TEMA['bg_main'], fg=TEMA['text_main'], font=TEMA['font_title']).pack(anchor='w', pady=(0,5))
+        var_tpl_auto = tk.StringVar(value=preview_state.get('template', 'grade'))
+        
+        def on_tpl_auto_change(e):
+            preview_state['template'] = var_tpl_auto.get()
+            redesenhar_auto_preview()
+
+        cb_tpl_auto = ttk.Combobox(f_left, textvariable=var_tpl_auto, values=['grade', 'hero_left', 'hero_top'], state='readonly')
+        cb_tpl_auto.pack(fill=tk.X, pady=(0,15))
+        cb_tpl_auto.bind('<<ComboboxSelected>>', on_tpl_auto_change)
+
+        # Sliders: Espaço e Borda
+        tk.Label(f_left, text="Espaço entre fotos:", bg=TEMA['bg_main'], fg=TEMA['text_main']).pack(anchor='w')
+        var_gap = tk.IntVar(value=preview_state.get('gap', 0))
+        def on_gap_auto_move(v):
+            preview_state['gap'] = int(float(v))
+            redesenhar_auto_preview()
+        tk.Scale(f_left, from_=0, to=200, orient=tk.HORIZONTAL, variable=var_gap,
+                 bg=TEMA['bg_main'], fg=TEMA['text_main'], highlightthickness=0, command=on_gap_auto_move).pack(fill=tk.X, pady=(0,10))
+
+        tk.Label(f_left, text="Arredondamento cantos:", bg=TEMA['bg_main'], fg=TEMA['text_main']).pack(anchor='w')
+        var_rad = tk.IntVar(value=preview_state.get('radius', 0))
+        def on_rad_auto_move(v):
+            preview_state['radius'] = int(float(v))
+            redesenhar_auto_preview()
+        tk.Scale(f_left, from_=0, to=200, orient=tk.HORIZONTAL, variable=var_rad,
+                 bg=TEMA['bg_main'], fg=TEMA['text_main'], highlightthickness=0, command=on_rad_auto_move).pack(fill=tk.X, pady=(0,15))
+
+        # Fundo
+        tk.Label(f_left, text="Fundo da Colagem:", bg=TEMA['bg_main'], fg=TEMA['text_main'], font=TEMA['font_title']).pack(anchor='w', pady=(0,5))
+        bg_btn_frame = tk.Frame(f_left, bg=TEMA['bg_main'])
+        bg_btn_frame.pack(fill=tk.X, pady=(0,10))
+        
+        def pick_color_auto():
+            c = colorchooser.askcolor(title="Cor de Fundo", initialcolor=preview_state.get('bg_color', '#FFFFFF'))
+            if c[1]: 
+                preview_state['bg_color'] = c[1]
+                redesenhar_auto_preview()
+
+        def pick_bg_img_auto():
+            fl = filedialog.askopenfilename(filetypes=[("Imagens", "*.jpg *.jpeg *.png *.bmp *.webp")])
+            if fl: 
+                preview_state['bg_image'] = fl
+                redesenhar_auto_preview()
+
+        ttk.Button(bg_btn_frame, text="🎨 Cor", command=pick_color_auto).pack(side=tk.LEFT, padx=(0,5), expand=True, fill=tk.X)
+        ttk.Button(bg_btn_frame, text="🖼️ Foto", command=pick_bg_img_auto).pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
+        ttk.Button(bg_btn_frame, text="❌", command=lambda: [preview_state.update(bg_image=None), redesenhar_auto_preview()], width=5).pack(side=tk.LEFT)
+
+        def resetar_auto():
+            default = {
+                'gap': 0, 'radius': 0, 'bg_color': '#FFFFFF',
+                'aspect_ratio': None, 'template': 'grade', 'bg_image': None
+            }
+            preview_state.clear()
+            preview_state.update(default)
+            var_gap.set(0)
+            var_rad.set(0)
+            var_tpl_auto.set("grade")
+            update_ar_var()
+            redesenhar_auto_preview()
+
+        def salvar_auto_settings():
+            # Atualiza o dicionário da sessão e do config.json
+            session['auto_settings'].clear()
+            session['auto_settings'].update(preview_state)
+            
+            cfg_s = carregar_config()
+            cfg_s['auto_settings'] = session['auto_settings']
+            salvar_config(cfg_s)
+            
+            set_status("✅ Configurações automáticas salvas!")
+            awin.destroy()
+
+        btn_f = tk.Frame(f_left, bg=TEMA['bg_main'])
+        btn_f.pack(side=tk.BOTTOM, fill=tk.X, pady=10)
+        
+        ttk.Button(btn_f, text="↺ Resetar", command=resetar_auto).pack(side=tk.LEFT, padx=(0,5), expand=True, fill=tk.X)
+        ttk.Button(btn_f, text="💾 Salvar", command=salvar_auto_settings).pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
+        
+        # Initial draw
+        awin.after(150, redesenhar_auto_preview)
 
     def abrir_configuracoes():
         cfg = carregar_config()
@@ -1393,16 +1594,27 @@ def montar_colagem_interface(parent, session_in=None):
                command=limpar_icones).pack(side=tk.LEFT, padx=4)
 
     var_auto = tk.BooleanVar(value=session.get('auto_colagem', False))
+    btn_auto_cfg = ttk.Button(bot_bar, text='⚙️', command=abrir_configuracoes_auto, width=3)
+
     def on_auto_change():
-        session['auto_colagem'] = var_auto.get()
+        is_auto = var_auto.get()
+        session['auto_colagem'] = is_auto
         cfg_auto = carregar_config()
-        cfg_auto['auto_colagem'] = var_auto.get()
+        cfg_auto['auto_colagem'] = is_auto
         salvar_config(cfg_auto)
         
+        if is_auto:
+            btn_auto_cfg.pack(side=tk.LEFT, padx=(0, 12))
+        else:
+            btn_auto_cfg.pack_forget()
+
     chk_auto = tk.Checkbutton(bot_bar, text="Colagem Automática", variable=var_auto, command=on_auto_change,
                               bg=TEMA['bg_panel'], fg=TEMA['text_main'], selectcolor=TEMA['bg_main'],
                               activebackground=TEMA['bg_panel'], activeforeground=TEMA['accent_hi'])
     chk_auto.pack(side=tk.LEFT, padx=12)
+
+    if var_auto.get():
+        btn_auto_cfg.pack(side=tk.LEFT, padx=(0, 12))
 
     progress_var = tk.DoubleVar()
     progress_bar = ttk.Progressbar(bot_bar, variable=progress_var, maximum=100)
