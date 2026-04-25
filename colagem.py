@@ -349,6 +349,56 @@ def montar_colagem_interface(parent, session_in=None):
                     rects.append((bx, by, w, bot_h))
                     bx += w + g
                     
+        elif t == 'hero_right':
+            if qtd <= 1:
+                rects.append((g, g, uw, uh))
+            else:
+                hero_w = (uw - g) // 2
+                rects.append((g + (uw - hero_w), g, hero_w, uh))
+                left_w = uw - hero_w - g
+                left_h_total = uh - g * (qtd - 2)
+                cell_h = left_h_total // (qtd - 1)
+                lx = g
+                ly = g
+                for i in range(1, qtd):
+                    h = cell_h if i < qtd - 1 else (uh - (ly - g))
+                    rects.append((lx, ly, left_w, h))
+                    ly += h + g
+
+        elif t == 'hero_bottom':
+            if qtd <= 1:
+                rects.append((g, g, uw, uh))
+            else:
+                hero_h = (uh - g) // 2
+                rects.append((g, g + (uh - hero_h), uw, hero_h))
+                top_h = uh - hero_h - g
+                top_w_total = uw - g * (qtd - 2)
+                cell_w = top_w_total // (qtd - 1)
+                tx = g
+                ty = g
+                for i in range(1, qtd):
+                    w = cell_w if i < qtd - 1 else (uw - (tx - g))
+                    rects.append((tx, ty, w, top_h))
+                    tx += w + g
+
+        elif t == 'coluna':
+            cell_h_total = uh - g * (qtd - 1)
+            cell_h = cell_h_total // qtd
+            y = g
+            for i in range(qtd):
+                h = cell_h if i < qtd - 1 else (uh - (y - g))
+                rects.append((g, y, uw, h))
+                y += h + g
+
+        elif t == 'linha':
+            cell_w_total = uw - g * (qtd - 1)
+            cell_w = cell_w_total // qtd
+            x = g
+            for i in range(qtd):
+                w = cell_w if i < qtd - 1 else (uw - (x - g))
+                rects.append((x, g, w, uh))
+                x += w + g
+                    
         return rects
 
     def make_collage(image_paths, output_path, state, gap_real):
@@ -491,6 +541,7 @@ def montar_colagem_interface(parent, session_in=None):
         win.geometry(f'+{max(0, px)}+{max(0, py)}')
 
         history = []
+        var_recolocar = tk.BooleanVar(value=False)
         
         def salvar_estado():
             history.append(copy.deepcopy(state))
@@ -701,6 +752,12 @@ def montar_colagem_interface(parent, session_in=None):
 
             if kind == 'cell':
                 idx = drag['idx']
+                
+                if var_recolocar.get():
+                    t_idx = cell_at(event.x, event.y)
+                    redesenhar(hi_cell=idx, hi_drop=t_idx)
+                    return
+
                 img = imagens_orig[idx]
                 ws  = get_col_widths();  hs = get_row_heights()
                 ci  = idx%cols;  ri = idx//cols
@@ -751,7 +808,7 @@ def montar_colagem_interface(parent, session_in=None):
 
         def on_release(event):
             if drag['type'] == 'cell':
-                if event.state & 0x0004:
+                if var_recolocar.get() or (event.state & 0x0004):
                     t_idx = cell_at(event.x, event.y)
                     s_idx = drag['idx']
                     if t_idx is not None and t_idx != s_idx:
@@ -939,7 +996,9 @@ def montar_colagem_interface(parent, session_in=None):
         g_tpl = tk.Frame(ctrl_frame, bg=TEMA['bg_main'])
         tk.Label(g_tpl, text="Template:", bg=TEMA['bg_main'], fg=TEMA['text_main']).pack(side=tk.LEFT, padx=(5, 5))
         var_tpl = tk.StringVar(value=state.get('template', 'grade'))
-        cb_tpl = ttk.Combobox(g_tpl, textvariable=var_tpl, values=['grade', 'hero_left', 'hero_top'], state='readonly', width=10)
+        cb_tpl = ttk.Combobox(g_tpl, textvariable=var_tpl, 
+                              values=['grade', 'hero_left', 'hero_right', 'hero_top', 'hero_bottom', 'coluna', 'linha'], 
+                              state='readonly', width=12)
         cb_tpl.pack(side=tk.LEFT)
         cb_tpl.bind('<<ComboboxSelected>>', on_tpl_change)
         groups.append(g_tpl)
@@ -969,6 +1028,14 @@ def montar_colagem_interface(parent, session_in=None):
         ttk.Button(g_bg, text="🖼️ Foto", command=choose_bg_image, width=7).pack(side=tk.LEFT, padx=2)
         ttk.Button(g_bg, text="❌", command=remove_bg_image, width=3).pack(side=tk.LEFT, padx=1)
         groups.append(g_bg)
+
+        # G5: Recolocar
+        g_swap = tk.Frame(ctrl_frame, bg=TEMA['bg_main'])
+        tk.Checkbutton(g_swap, text="Recolocar", variable=var_recolocar,
+                       bg=TEMA['bg_main'], fg=TEMA['accent'], selectcolor=TEMA['bg_panel'],
+                       activebackground=TEMA['bg_main'], activeforeground=TEMA['accent'],
+                       font=TEMA['font_title']).pack(side=tk.LEFT, padx=5)
+        groups.append(g_swap)
 
         def flow_layout(event=None):
             # Limpa o pack atual dos grupos
@@ -1384,7 +1451,9 @@ def montar_colagem_interface(parent, session_in=None):
             preview_state['template'] = var_tpl_auto.get()
             redesenhar_auto_preview()
 
-        cb_tpl_auto = ttk.Combobox(f_left, textvariable=var_tpl_auto, values=['grade', 'hero_left', 'hero_top'], state='readonly')
+        cb_tpl_auto = ttk.Combobox(f_left, textvariable=var_tpl_auto, 
+                                   values=['grade', 'hero_left', 'hero_right', 'hero_top', 'hero_bottom', 'coluna', 'linha'], 
+                                   state='readonly')
         cb_tpl_auto.pack(fill=tk.X, pady=(0,15))
         cb_tpl_auto.bind('<<ComboboxSelected>>', on_tpl_auto_change)
 
