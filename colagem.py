@@ -1307,9 +1307,9 @@ def montar_colagem_interface(parent, session_in=None):
             bg_c = preview_state.get('bg_color', '#FFFFFF')
             preview_canvas.create_rectangle(0, 0, pw, ph, fill=bg_c, outline='')
             
-            # Gap e Radius escalados
-            gap_vis = int(preview_state.get('gap', 0) * sc * 0.4) 
-            rad_vis = int(preview_state.get('radius', 0) * sc * 0.4)
+            # Gap e Radius escalados de forma mais sutil
+            gap_vis = int(preview_state.get('gap', 0) * sc * 0.15) 
+            rad_vis = int(preview_state.get('radius', 0) * sc * 0.15)
             
             state_mock = {
                 'template': preview_state.get('template', 'grade'),
@@ -1323,14 +1323,21 @@ def montar_colagem_interface(parent, session_in=None):
             for i, (rx, ry, rw, rh) in enumerate(rects):
                 if i >= len(colors): break
                 c = colors[i]
-                # Simular arredondamento simples
-                if rad_vis > 5:
-                    preview_canvas.create_rectangle(rx, ry, rx+rw, ry+rh, fill=c, outline='', stipple='gray50' if i%2 else '')
-                    # Apenas um indicador visual de que a borda está ativa
-                    preview_canvas.create_oval(rx, ry, rx+rad_vis*2, ry+rad_vis*2, fill=c, outline='')
                 
-                preview_canvas.create_rectangle(rx, ry, rx+rw, ry+rh, fill=c, outline='white', width=1)
-                preview_canvas.create_text(rx+rw/2, ry+rh/2, text=f"F{i+1}", fill="white", font=('Segoe UI', 8, 'bold'))
+                if rad_vis > 2:
+                    r = min(rad_vis, rw/2, rh/2)
+                    # Cantos
+                    preview_canvas.create_arc(rx, ry, rx+2*r, ry+2*r, start=90, extent=90, fill=c, outline='')
+                    preview_canvas.create_arc(rx+rw-2*r, ry, rx+rw, ry+2*r, start=0, extent=90, fill=c, outline='')
+                    preview_canvas.create_arc(rx, ry+rh-2*r, rx+2*r, ry+rh, start=180, extent=90, fill=c, outline='')
+                    preview_canvas.create_arc(rx+rw-2*r, ry+rh-2*r, rx+rw, ry+rh, start=270, extent=90, fill=c, outline='')
+                    # Corpos
+                    preview_canvas.create_rectangle(rx+r, ry, rx+rw-r, ry+rh, fill=c, outline='')
+                    preview_canvas.create_rectangle(rx, ry+r, rx+rw, ry+rh-r, fill=c, outline='')
+                else:
+                    preview_canvas.create_rectangle(rx, ry, rx+rw, ry+rh, fill=c, outline='')
+                
+                preview_canvas.create_text(rx+rw/2, ry+rh/2, text=f"Foto {i+1}", fill="white", font=('Segoe UI', 8, 'bold'))
 
         f_right.bind("<Configure>", lambda e: awin.after(10, redesenhar_auto_preview))
 
