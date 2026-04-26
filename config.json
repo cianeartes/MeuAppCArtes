@@ -5,9 +5,10 @@
         "I:\\Meu Drive\\LOJA NOVAS 2",
         "N:\\Meu Drive\\CIANE_ARTES_2025"
     ],
-    "theme": "light",
+    "theme": "dark",
     "last_csv": "C:/Users/wiver/Downloads/produtos_filtrados_2026-04-22.csv",
     "last_page": 2,
     "window_geometry": "1920x1009+34+237",
-    "lock_subscription_price": true
+    "lock_subscription_price": true,
+    "window_geometry_moc": "1100x750+100+100"
 }
