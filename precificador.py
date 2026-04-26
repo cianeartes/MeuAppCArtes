@@ -512,10 +512,6 @@ class PrecificadorApp(ctk.CTk):
                                         
         self.import_btn.pack(side="left", padx=(15, 5), pady=15)
         
-        self.refresh_btn = ctk.CTkButton(self.toolbar, text="🔄 Atualizar", width=140, height=40, corner_radius=8,
-                                         fg_color="#475569", hover_color="#334155", font=("Segoe UI", 13, "bold"), command=self.refresh_list)
-        self.refresh_btn.pack(side="left", padx=5, pady=15)
-        
         self.export_btn = ctk.CTkButton(self.toolbar, text="📤 Exportar CSV", width=160, height=40, corner_radius=8,
                                         fg_color=COLORS["success"], font=("Segoe UI", 13, "bold"), command=self.save_csv_dialog)
         self.export_btn.pack(side="left", padx=5, pady=15)
@@ -582,6 +578,7 @@ class PrecificadorApp(ctk.CTk):
             self.filtered_df = self.df[mask].copy()
 
     def refresh_list(self):
+        # Clear existing rows
         for row in self.product_rows:
             row.destroy()
         self.product_rows = []
@@ -615,11 +612,6 @@ class PrecificadorApp(ctk.CTk):
             p_row = ProductRow(self.scroll_frame, idx, row_data, self.config, self.on_item_save, self.on_item_select)
             p_row.pack(fill="x", pady=5, padx=5)
             self.product_rows.append(p_row)
-        
-        # Redraw hack - increased delay to wait for thumbnail threads
-        curr_mode = ctk.get_appearance_mode()
-        self.after(1000, lambda: ctk.set_appearance_mode("Light" if curr_mode == "Dark" else "Dark"))
-        self.after(1500, lambda: ctk.set_appearance_mode(curr_mode))
         
         self.update_idletasks()
 
