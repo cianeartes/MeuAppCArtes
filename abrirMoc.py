@@ -5,6 +5,16 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 import threading
 import json
+import ctypes
+import sys
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # --- Configuration & Aesthetics ---
 CONFIG_FILE = "config.json"
@@ -67,6 +77,12 @@ class SubfolderRow(ctk.CTkFrame):
         self.counter_label = ctk.CTkLabel(self.actions_frame, text="Calculando...", font=("Segoe UI", 12, "bold"), text_color=COLORS["success"])
         self.counter_label.pack(side="left", padx=10)
         
+        self.copy_btn = ctk.CTkButton(self.actions_frame, text="📋 Copiar", width=80, height=32, 
+                                       fg_color=COLORS["border"], hover_color=COLORS["primary"], 
+                                       text_color=COLORS["text_main"],
+                                       font=("Segoe UI", 12, "bold"), command=self.copy_title)
+        self.copy_btn.pack(side="left", padx=5)
+
         self.open_btn = ctk.CTkButton(self.actions_frame, text="📁 Abrir", width=80, height=32, 
                                        fg_color=COLORS["primary"], hover_color="#2563eb", 
                                        font=("Segoe UI", 12, "bold"), command=self.open_folder)
@@ -111,6 +127,15 @@ class SubfolderRow(ctk.CTkFrame):
             except:
                 pass
 
+    def copy_title(self):
+        self.clipboard_clear()
+        self.clipboard_append(self.folder_name)
+        
+        # Feedback visual temporário
+        original_text = self.copy_btn.cget("text")
+        self.copy_btn.configure(text="✅ Copiado!")
+        self.after(2000, lambda: self.copy_btn.configure(text=original_text))
+
     def open_folder(self):
         if os.path.exists(self.folder_path):
             os.startfile(self.folder_path)
@@ -121,6 +146,18 @@ class AbrirMocApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
+        # Configurar ID da aplicação para exibir ícone corretamente na barra de tarefas
+        try:
+            myappid = 'cianeartes.meuapp.abrirmoc.1.0'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except:
+            pass
+
+        # Configurar ícone da janela
+        icon_path = resource_path("icon_moc.ico")
+        if os.path.exists(icon_path):
+            self.iconbitmap(icon_path)
+            
         self.config = load_config()
         self.title("Visualizador de Mockups Premium")
         

@@ -1,0 +1,12 @@
+{
+    "mockup_base_path": "C:\\ENVIO_PARANUVEM\\MOCKUPS",
+    "folder_base_path_src": "C:\\ENVIO_PARANUVEM\\PASTAS",
+    "folder_base_path_dst": [
+        "C:\\ENVIO_PARANUVEM\\PASTAS"
+    ],
+    "theme": "dark",
+    "last_csv": "produtos.csv",
+    "last_page": 0,
+    "window_geometry": "1300x850+100+100",
+    "lock_subscription_price": true
+}

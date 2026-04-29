@@ -1,0 +1,14 @@
+{
+    "monitor_geometry": "150x277+1777+429",
+    "monitor_alpha": 1.0,
+    "visibility": {
+        "CPU": true,
+        "RAM": true,
+        "Network": true,
+        "Disks": true
+    },
+    "hide_main_bg": true,
+    "selected_disks": [
+        "C:\\"
+    ]
+}

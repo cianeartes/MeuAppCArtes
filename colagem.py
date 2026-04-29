@@ -11,6 +11,15 @@ import subprocess
 import shutil
 import json
 import threading
+import sys
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 from tkinter import colorchooser, filedialog
 import copy
 from PIL import Image, ImageTk, ImageDraw, ImageFont, ImageEnhance, ImageOps
@@ -1732,6 +1741,19 @@ if __name__ == '__main__':
     from tkinterdnd2 import TkinterDnD
     root = TkinterDnD.Tk()
     root.title('Colagem Inteligente')
+
+    # Configurar ID da aplicação para exibir ícone corretamente na barra de tarefas
+    try:
+        import ctypes
+        myappid = 'cianeartes.meuapp.colagem.1.0'
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    except:
+        pass
+
+    # Configurar ícone da janela
+    icon_path = resource_path("icon_cola.ico")
+    if os.path.exists(icon_path):
+        root.iconbitmap(icon_path)
     
     # Removemos o carregamento da geometria anterior para garantir 
     # que o app abra no menor tamanho possível que comporte o conteúdo.

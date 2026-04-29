@@ -1,14 +1,15 @@
 {
-    "mockup_base_path": "C:\\ENVIO_PARANUVEM\\MOCKUPS",
-    "folder_base_path_src": "C:\\ENVIO_PARANUVEM\\PASTAS",
-    "folder_base_path_dst": [
-        "I:\\Meu Drive\\LOJA NOVAS 2",
-        "N:\\Meu Drive\\CIANE_ARTES_2025"
-    ],
-    "theme": "dark",
-    "last_csv": "C:/Users/wiver/Downloads/produtos_filtrados_2026-04-22.csv",
-    "last_page": 2,
-    "window_geometry": "1920x1009+34+237",
-    "lock_subscription_price": true,
-    "window_geometry_moc": "1100x750+100+100"
+    "monitor_geometry": "150x358+1744+211",
+    "monitor_alpha": 1.0,
+    "visibility": {
+        "CPU": true,
+        "RAM": true,
+        "Network": true,
+        "Disks": true
+    },
+    "hide_main_bg": true,
+    "selected_disks": [
+        "C:\\",
+        "D:\\"
+    ]
 }

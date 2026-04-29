@@ -1,0 +1,19 @@
+{
+  "listas": {},
+  "tema": "dark",
+  "icones": {
+    "pasta": "📁",
+    "arquivo": "📄",
+    "pdf": "📕",
+    "zip": "📦",
+    "rar": "📦",
+    "exe": "⚙️",
+    "txt": "📝",
+    "jpg": "🖼️",
+    "png": "🖼️",
+    "mp4": "🎬",
+    "xlsx": "📊",
+    "docx": "📝",
+    "csv": "📈"
+  }
+}

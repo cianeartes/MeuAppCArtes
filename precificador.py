@@ -8,6 +8,15 @@ from PIL import Image, ImageTk
 import subprocess
 import threading
 import math
+import sys
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # --- Configuration & Settings ---
 CONFIG_FILE = "config.json"
@@ -436,6 +445,19 @@ class PrecificadorApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
+        # Configurar ID da aplicação para exibir ícone corretamente na barra de tarefas
+        try:
+            import ctypes
+            myappid = 'cianeartes.meuapp.precificador.1.0'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except:
+            pass
+
+        # Configurar ícone da janela
+        icon_path = resource_path("icon_preci.ico")
+        if os.path.exists(icon_path):
+            self.iconbitmap(icon_path)
+            
         self.config = load_config()
         ctk.set_appearance_mode(self.config.get("theme", "dark"))
         ctk.set_default_color_theme("blue")
