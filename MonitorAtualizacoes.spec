@@ -1,11 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
     ['monitor_atualizacoes.py'],
     pathex=[],
     binaries=[],
-    datas=[('busca.ico', '.')],
+    datas=[
+        ('busca.ico', '.'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

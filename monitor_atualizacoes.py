@@ -17,6 +17,7 @@ import subprocess
 import sys
 import csv
 import uuid
+import multiprocessing
 import customtkinter
 import ctypes
 
@@ -296,6 +297,7 @@ class MonitorApp:
         self.icones_img = {}          # Cache de PhotoImages {ext: img}
         self.lista_ativa = None       # lid ativo
         self.escaneando  = False
+        self._parar_scan = threading.Event()  # Sinal de cancelamento
         self.aba_ativa   = "todos"    # "todos" | "favoritos"
 
         self.var_arquivos = tk.BooleanVar(value=False)
@@ -576,59 +578,69 @@ class MonitorApp:
         linha = customtkinter.CTkFrame(self.frame_toolbar, fg_color="transparent")
         linha.pack(fill='x')
 
-        customtkinter.CTkLabel(linha, text="Pasta Base:", font=("Segoe UI", 10, "bold")).pack(side='left', padx=(0, 10))
-        self.entry_pasta = customtkinter.CTkEntry(linha, placeholder_text="Selecione a pasta para monitorar...", font=("Segoe UI", 11))
+        customtkinter.CTkLabel(linha, text="Pasta Base:", font=("Segoe UI", 13, "bold")).pack(side='left', padx=(0, 10))
+        self.entry_pasta = customtkinter.CTkEntry(linha, placeholder_text="Selecione a pasta para monitorar...", font=("Segoe UI", 13), height=36)
         self.entry_pasta.pack(side='left', padx=(0, 10), fill='x', expand=True)
 
-        customtkinter.CTkButton(linha, text="Explorar...", width=100, height=32, 
+        customtkinter.CTkButton(linha, text="Explorar...", width=110, height=36, font=("Segoe UI", 13),
                                command=self.escolher_pasta).pack(side='left', padx=(0, 15))
 
-        customtkinter.CTkLabel(linha, text="Nível:", font=("Segoe UI", 10)).pack(side='left', padx=(0, 5))
-        self.spin_nivel = customtkinter.CTkEntry(linha, width=50, font=("Segoe UI", 11))
+        customtkinter.CTkLabel(linha, text="Nível:", font=("Segoe UI", 13, "bold")).pack(side='left', padx=(0, 5))
+        self.spin_nivel = customtkinter.CTkEntry(linha, width=55, font=("Segoe UI", 13), height=36)
         self.spin_nivel.insert(0, "2")
         self.spin_nivel.pack(side='left', padx=(0, 15))
 
-        self.chk_arq = customtkinter.CTkCheckBox(linha, text="Arquivos", variable=self.var_arquivos, font=("Segoe UI", 10))
+        self.chk_arq = customtkinter.CTkCheckBox(linha, text="Arquivos", variable=self.var_arquivos, font=("Segoe UI", 13))
         self.chk_arq.pack(side='left', padx=(0, 15))
 
-        self.btn_scan = customtkinter.CTkButton(linha, text="Escanear", font=("Segoe UI", 11, "bold"),
-                                              width=120, height=35, command=self.iniciar_scan_thread)
+        self.btn_scan = customtkinter.CTkButton(linha, text="Escanear", font=("Segoe UI", 13, "bold"),
+                                              width=130, height=36, command=self.iniciar_scan_thread)
         self.btn_scan.pack(side='left', padx=(0, 10))
+
+        self.btn_parar = customtkinter.CTkButton(
+            linha, text="⏹ Parar", font=("Segoe UI", 13, "bold"),
+            width=110, height=36,
+            fg_color="#c0392b", hover_color="#e74c3c", text_color="#ffffff",
+            command=self._cancelar_scan
+        )
+        # Não faz pack aqui — aparece só durante o scan
 
         # SEGUNDA LINHA
         linha2 = customtkinter.CTkFrame(self.frame_toolbar, fg_color="transparent")
         linha2.pack(fill='x', pady=(15, 0))
 
-        customtkinter.CTkLabel(linha2, text="📅 De:", font=("Segoe UI", 10, "bold")).pack(side='left', padx=(0, 5))
+        customtkinter.CTkLabel(linha2, text="📅 De:", font=("Segoe UI", 13, "bold")).pack(side='left', padx=(0, 5))
         self.var_data_inicio = tk.StringVar(value="01/01/2026")
-        self.entry_inicio = customtkinter.CTkEntry(linha2, textvariable=self.var_data_inicio, width=100)
+        self.entry_inicio = customtkinter.CTkEntry(linha2, textvariable=self.var_data_inicio, width=110, font=("Segoe UI", 13), height=36)
         self.entry_inicio.pack(side='left', padx=(0, 5))
 
-        customtkinter.CTkButton(linha2, text="📅", width=32, height=32,
+        customtkinter.CTkButton(linha2, text="📅", width=36, height=36, font=("Segoe UI", 13),
                                command=lambda: CalendarioPopUp(self.root, self.var_data_inicio, self.tema)).pack(side='left', padx=(0, 10))
 
-        customtkinter.CTkLabel(linha2, text="Até:", font=("Segoe UI", 10, "bold")).pack(side='left', padx=(0, 5))
+        customtkinter.CTkLabel(linha2, text="Até:", font=("Segoe UI", 13, "bold")).pack(side='left', padx=(0, 5))
         self.var_data_fim = tk.StringVar(value=datetime.datetime.now().strftime("%d/%m/%Y"))
-        self.entry_fim = customtkinter.CTkEntry(linha2, textvariable=self.var_data_fim, width=100)
+        self.entry_fim = customtkinter.CTkEntry(linha2, textvariable=self.var_data_fim, width=110, font=("Segoe UI", 13), height=36)
         self.entry_fim.pack(side='left', padx=(0, 5))
 
-        customtkinter.CTkButton(linha2, text="📅", width=32, height=32,
+        customtkinter.CTkButton(linha2, text="📅", width=36, height=36, font=("Segoe UI", 13),
                                command=lambda: CalendarioPopUp(self.root, self.var_data_fim, self.tema)).pack(side='left', padx=(0, 15))
 
-        self.btn_filtrar_data = customtkinter.CTkButton(linha2, text="Filtrar", width=80, height=32, 
+        self.btn_filtrar_data = customtkinter.CTkButton(linha2, text="Filtrar", width=90, height=36, font=("Segoe UI", 13),
                                                       command=self.recarregar_aba_atual)
         self.btn_filtrar_data.pack(side='left', padx=(0, 20))
 
-        customtkinter.CTkLabel(linha2, text="🔍 Busca:", font=("Segoe UI", 10)).pack(side='left', padx=(0, 5))
+        customtkinter.CTkLabel(linha2, text="🔍 Busca:", font=("Segoe UI", 13, "bold")).pack(side='left', padx=(0, 5))
         self.var_busca = tk.StringVar()
-        self.entry_busca = customtkinter.CTkEntry(linha2, textvariable=self.var_busca, placeholder_text="🔍 Pesquisar nos resultados...")
+        self.entry_busca = customtkinter.CTkEntry(linha2, textvariable=self.var_busca,
+                                                 placeholder_text="🔍 Pesquisar nos resultados...",
+                                                 font=("Segoe UI", 13), height=36)
         self.entry_busca.pack(side='left', fill='x', expand=True)
         self.var_busca.trace_add("write", lambda *args: self.recarregar_aba_atual())
 
         # Progress
         self.frame_progress = customtkinter.CTkFrame(self.frame_toolbar, fg_color="transparent")
         self.frame_progress.pack(fill='x', pady=(10, 0))
-        self.lbl_progress = customtkinter.CTkLabel(self.frame_progress, text="", font=("Segoe UI", 10))
+        self.lbl_progress = customtkinter.CTkLabel(self.frame_progress, text="", font=("Segoe UI", 12))
         self.lbl_progress.pack(side='left')
         self.progress_bar = customtkinter.CTkProgressBar(self.frame_progress, width=300)
 
@@ -936,12 +948,19 @@ class MonitorApp:
             self.entry_pasta.delete(0, tk.END)
             self.entry_pasta.insert(0, pasta)
 
+    def _cancelar_scan(self):
+        """Sinaliza para o scan em andamento que deve parar."""
+        self._parar_scan.set()
+        self.btn_parar.configure(state='disabled', text="Parando...")
+        self.lbl_status.configure(text="⏹ Cancelando scan...")
+
     def iniciar_scan_thread(self):
         if self.escaneando:
             return
         if not self.lista_ativa:
             messagebox.showwarning("Aviso", "Selecione ou crie uma lista primeiro.", parent=self.root)
             return
+        self._parar_scan.clear()  # Garante que a flag está limpa
         t = threading.Thread(target=self._executar_scan, daemon=True)
         t.start()
 
@@ -962,6 +981,11 @@ class MonitorApp:
 
         incluir_arq = self.var_arquivos.get()
         itens_novos = self._escanear(pasta, nivel, incluir_arq)
+
+        # Verificar se foi cancelado
+        if self._parar_scan.is_set():
+            self.root.after(0, lambda n=len(itens_novos): self._scan_cancelado(n))
+            return
 
         # Detectar novidades vs scan anterior
         lista = self.listas[self.lista_ativa]
@@ -984,6 +1008,8 @@ class MonitorApp:
 
     def _inicio_ui_scan(self):
         self.btn_scan.configure(state='disabled', text="⏳  Escaneando...")
+        self.btn_parar.configure(state='normal', text="⏹ Parar")
+        self.btn_parar.pack(side='left', padx=(0, 10))
         self.lbl_status.configure(text="🔍 Escaneando... Aguarde.")
         self.lbl_progress.configure(text="Iniciando scan...")
         self.progress_bar.pack(side='left', padx=(8, 0))
@@ -995,6 +1021,14 @@ class MonitorApp:
         self.progress_bar.pack_forget()
         self.lbl_progress.configure(text="")
         self.btn_scan.configure(state='normal', text="🔍  Escanear")
+        self.btn_parar.pack_forget()
+
+    def _scan_cancelado(self, n_parcial):
+        """Chamado na thread principal quando o scan é cancelado pelo usuário."""
+        self._fim_ui_scan()
+        self.lbl_status.configure(
+            text=f"⏹ Scan cancelado. {n_parcial} item(ns) coletados (não salvos)."
+        )
 
     def _pos_scan(self, novos, modificados, removidos):
         lista = self.listas[self.lista_ativa]
@@ -1003,35 +1037,21 @@ class MonitorApp:
         self.lbl_ultimo_scan.configure(text=f"Último scan: {lista['ultimo_scan']}")
 
         n = len(lista['itens'])
-        self.lbl_status.configure(text=f"✅ Scan concluído! {n} itens encontrados.")
         self._fim_ui_scan()
 
-        # Relatório de mudanças
+        # Atualiza apenas a barra de status com o resumo das mudanças, sem abrir diálogo
         tem_mudancas = novos or modificados or removidos
         if tem_mudancas:
-            linhas = []
-            if novos:
-                linhas.append(f"🆕 Novos ({len(novos)}):")
-                for it in novos[:5]:
-                    linhas.append(f"   • {it['nome']}")
-                if len(novos) > 5:
-                    linhas.append(f"   ... e mais {len(novos)-5}")
-            if modificados:
-                linhas.append(f"\n✏️  Modificados ({len(modificados)}):")
-                for it in modificados[:5]:
-                    linhas.append(f"   • {it['nome']}")
-                if len(modificados) > 5:
-                    linhas.append(f"   ... e mais {len(modificados)-5}")
-            if removidos:
-                linhas.append(f"\n🗑️  Removidos ({len(removidos)}):")
-                for cam in removidos[:5]:
-                    linhas.append(f"   • {os.path.basename(cam)}")
-                if len(removidos) > 5:
-                    linhas.append(f"   ... e mais {len(removidos)-5}")
-            messagebox.showinfo("Mudanças detectadas", "\n".join(linhas), parent=self.root)
+            resumo = []
+            if novos: resumo.append(f"{len(novos)} novos")
+            if modificados: resumo.append(f"{len(modificados)} modificados")
+            if removidos: resumo.append(f"{len(removidos)} removidos")
+            
+            msg = f"✅ Scan concluído! {n} itens. Mudanças: {', '.join(resumo)}."
+            self.lbl_status.configure(text=msg)
         else:
             self.lbl_status.configure(
-                text=f"✅ Scan concluído! {n} itens encontrados. Nenhuma mudança detectada."
+                text=f"✅ Scan concluído! {n} itens. Nenhuma mudança detectada."
             )
 
     def _escanear(self, base, max_nivel, incluir_arq):
@@ -1048,13 +1068,17 @@ class MonitorApp:
 
         try:
             for root, dirs, files in os.walk(base_norm):
+                # Verificar cancelamento a cada diretório
+                if self._parar_scan.is_set():
+                    break
+
                 # Calcula profundidade atual relativa à base
                 root_norm = os.path.normpath(root)
                 current_depth = root_norm.count(os.sep) - start_sep_count
-                
+
                 # Se atingiu o limite de profundidade, não processa este nível nem desce mais
                 if current_depth >= max_nivel:
-                    dirs[:] = [] # Impede os.walk de descer mais
+                    dirs[:] = []  # Impede os.walk de descer mais
                     continue
 
                 # Processar subpastas encontradas neste nível
@@ -1511,7 +1535,31 @@ class MonitorApp:
 # PONTO DE ENTRADA
 # ══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
-    root = customtkinter.CTk()
+    # Necessário para executáveis PyInstaller com multiprocessing --
+    # impede que processos filhos reiniciem o app em loop infinito.
+    multiprocessing.freeze_support()
+
+    # ── Instância única (Windows Named Mutex) ────────────────────────────────
+    # Garante que apenas UMA cópia do app rode por vez.
+    _MUTEX_NAME = "Global\\MonitorAtualizacoes_SingleInstance"
+    _mutex = None
+    try:
+        _mutex = ctypes.windll.kernel32.CreateMutexW(None, False, _MUTEX_NAME)
+        _last_error = ctypes.windll.kernel32.GetLastError()
+        if _last_error == 183:  # ERROR_ALREADY_EXISTS
+            import tkinter as _tk
+            import tkinter.messagebox as _mb
+            _r = _tk.Tk()
+            _r.withdraw()
+            _mb.showwarning(
+                "Monitor de Atualizações",
+                "O aplicativo já está em execução.\n"
+                "Verifique a barra de tarefas."
+            )
+            _r.destroy()
+            sys.exit(0)
+    except Exception:
+        pass  # Se falhar (ex: não-Windows), apenas continua normalmente
 
     # DPI awareness no Windows
     try:
@@ -1520,5 +1568,14 @@ if __name__ == "__main__":
     except Exception:
         pass
 
+    root = customtkinter.CTk()
     app = MonitorApp(root)
     root.mainloop()
+
+    # Libera o mutex ao encerrar
+    if _mutex:
+        try:
+            ctypes.windll.kernel32.ReleaseMutex(_mutex)
+            ctypes.windll.kernel32.CloseHandle(_mutex)
+        except Exception:
+            pass
